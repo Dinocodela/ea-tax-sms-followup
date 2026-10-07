@@ -1,0 +1,484 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>EA Tax · SMS Follow-up</title>
+<style>
+:root{--ink:#1d2a3d;--muted:#627086;--line:#e3e8ef;--bg:#f4f6f9;--panel:#fff;--brand:#234b7d;--brand-dark:#1a3a63;--side:#15202e;--side-ink:#c9d3e0;--accent:#c8f06a;--ok:#2f9e5f;--warn:#8a5a00;--warn-bg:#fff4dc;--bad:#b54432}
+*{box-sizing:border-box}[hidden]{display:none!important}html,body{height:100%}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,sans-serif}
+a{color:var(--brand)}p{color:var(--muted);margin:6px 0 12px}h1{font-size:24px;margin:0}h2{font-size:17px;margin:0 0 6px}h3{font-size:15px;margin:18px 0 6px}small{color:var(--muted)}code{font-size:12px}
+button{border:0;background:var(--brand);color:#fff;padding:9px 14px;border-radius:7px;cursor:pointer;font:inherit;transition:background .15s,transform .08s}button:hover:not(:disabled){background:var(--brand-dark)}button:active:not(:disabled){transform:scale(.97)}button:focus-visible{outline:3px solid #9cc0f0;outline-offset:2px}button:disabled{opacity:.6;cursor:default}
+button.secondary{background:#e9eef5;color:var(--brand)}button.secondary:hover:not(:disabled){background:#dbe4ef}button.small{padding:5px 9px;font-size:13px}button.link{background:none;color:var(--brand);padding:0;text-decoration:underline}button.link:hover:not(:disabled){background:none}
+input,textarea,select{padding:8px 10px;border:1px solid #c6d0dc;border-radius:7px;font:inherit;background:#fff;color:var(--ink)}textarea{width:100%;min-height:70px;resize:vertical}label{display:flex;flex-direction:column;gap:5px;font-size:13px}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:11px 10px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--muted);font-size:12px;font-weight:600;background:#f8fafc;position:sticky;top:0}tbody tr.clickable{cursor:pointer}tbody tr.clickable:hover{background:#f5f8fc}tbody tr.selected{background:#eef4fc}
+.empty{padding:40px 20px;text-align:center;color:var(--muted)}.flag{color:var(--bad);font-weight:600}.muted{color:var(--muted)}.nowrap{white-space:nowrap}
+
+/* App shell */
+.app{display:grid;grid-template-columns:232px 1fr;min-height:100vh}
+.side{background:var(--side);color:var(--side-ink);display:flex;flex-direction:column;padding:18px 12px;position:sticky;top:0;height:100vh}
+.brand{display:flex;align-items:center;gap:10px;padding:2px 8px 20px;color:#fff;font-weight:700;font-size:15px}.brand .logo{width:30px;height:30px;border-radius:8px;background:var(--accent);color:var(--side);display:grid;place-items:center;font-weight:800}
+.brand small{display:block;color:#8c9bb0;font-weight:400;font-size:12px}
+.nav a{display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:8px;color:var(--side-ink);text-decoration:none;margin-bottom:2px}.nav a:hover{background:#1f2c3d;color:#fff}.nav a.active{background:#26364a;color:var(--accent)}
+.nav svg{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.nav .count{margin-left:auto;font-size:12px;color:#8c9bb0}.nav .alert{margin-left:auto;font-size:11px;font-weight:700;background:#f2b84b;color:#3b2700;border-radius:10px;padding:1px 7px}
+.side-foot{margin-top:auto;border-top:1px solid #26364a;padding:14px 6px 0;font-size:12px}.mode{display:inline-block;border-radius:20px;padding:4px 10px;font-weight:700;font-size:11px;letter-spacing:.03em;background:#20412f;color:#9be3b6}.mode.live{background:#4a2a1c;color:#ffc4a3}
+.health{display:flex;align-items:center;gap:7px;margin:10px 0 4px;color:#e4e9f0}.dot{width:8px;height:8px;border-radius:50%;background:#94a3b8;flex:none}.health.ok .dot{background:#3ccf7a;box-shadow:0 0 0 3px #1f4d33}.health.bad .dot{background:#f07a3c;box-shadow:0 0 0 3px #4d2a1f}
+#health-ago{color:#8c9bb0}#poll-btn{width:100%;margin-top:10px;display:inline-flex;align-items:center;justify-content:center;gap:8px;background:#2c4a70}#poll-btn:hover:not(:disabled){background:#355a87}#poll-btn.done{background:#2f7a50}
+.spin{display:none;width:13px;height:13px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}#poll-btn.busy .spin{display:inline-block}@keyframes spin{to{transform:rotate(360deg)}}
+
+.main{min-width:0;padding:26px 32px 60px}.page-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}.page-head p{margin:4px 0 0}
+#notice{color:var(--bad);font-weight:600}#notice:empty{display:none}
+.needs{display:block;margin:0 0 16px;padding:10px 14px;border-radius:10px;background:var(--warn-bg);color:#7a4f00;border:1px solid #f1d38f;font-weight:600}.needs a{color:inherit}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:18px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:18px}.tile{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;text-decoration:none;color:inherit;display:block}.tile:hover{border-color:#9db7da}
+.tile b{display:block;font-size:26px;margin-top:4px}.tile span{color:var(--muted);font-size:13px}.tile.warn{background:var(--warn-bg);border-color:#f1d38f}
+.guide ol,.guide ul{padding-left:22px;line-height:1.7;margin:6px 0}
+
+/* Status pills */
+.pill{display:inline-block;font-size:12px;border-radius:20px;padding:2px 9px;background:#e9eef5;color:var(--brand);white-space:nowrap;font-weight:600}
+.pill.ok{background:#dcf2e5;color:#1f6b41}.pill.warn{background:var(--warn-bg);color:var(--warn)}.pill.bad{background:#fde3dc;color:#9a3412}.pill.grey{background:#eef0f3;color:#5b6676}.pill.blue{background:#e3f0ff;color:#1d4f91}
+
+/* List views (Mixmax-like) */
+.listview{display:grid;grid-template-columns:210px 1fr;gap:18px;align-items:start}
+.filters{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;position:sticky;top:20px}.filters h4{font-size:11px;letter-spacing:.08em;color:var(--muted);margin:6px 8px 8px}
+.filters button{display:flex;width:100%;justify-content:space-between;background:none;color:var(--ink);padding:8px 10px;border-radius:7px;text-align:left}.filters button:hover:not(:disabled){background:#f1f5fa}.filters button.on{background:#e3ecf8;color:var(--brand);font-weight:700}.filters button span{color:var(--muted);font-weight:400}
+.listcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}.listbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line)}.listbar input[type=search]{flex:1;min-width:200px;max-width:380px}
+.pager{display:flex;align-items:center;gap:10px;justify-content:flex-end;padding:10px 14px;color:var(--muted);font-size:13px}
+.seq-pick{font-weight:600;max-width:260px}.bulkbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 14px;background:#eef4fc;border-bottom:1px solid #c9daf0;font-weight:600}.bulkbar .spacer{flex:1}td.sel,th.sel{width:34px;padding-right:0}td.sel input,th.sel input{width:16px;height:16px;cursor:pointer}.mx{white-space:nowrap}.mx .tick{color:var(--ok);font-weight:700}.planned{color:var(--muted);font-size:12px;display:block}.seqs{list-style:none;padding:0;margin:0}.seqs li{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px}.expand{background:none;color:var(--muted);padding:2px 6px;font-size:13px;transition:transform .15s}.expand:hover:not(:disabled){background:#eef1f5}.expand.on{transform:rotate(90deg)}.chips{display:flex;flex-wrap:wrap;gap:4px}.chip{display:inline-grid;place-items:center;min-width:22px;height:22px;padding:0 5px;border-radius:6px;font-size:11px;font-weight:700;background:#eef0f3;color:#5b6676}.chip.ok{background:#dcf2e5;color:#1f6b41}.chip.warn{background:var(--warn-bg);color:var(--warn)}.chip.bad{background:#fde3dc;color:#9a3412}.chip.blue{background:#e3f0ff;color:#1d4f91}tr.sub>td{background:#fafbfd;padding:0 10px 12px 52px}.stagelist{border-left:2px solid var(--line);margin-left:6px}.stagerow{display:grid;grid-template-columns:150px 1fr 200px;gap:12px;padding:10px 0 10px 16px;border-bottom:1px dashed var(--line)}.stagerow:last-child{border-bottom:0}.who b{display:block}.who small{display:block}.textcell{max-width:360px}
+
+/* Recipient drawer */
+.drawer{position:fixed;top:0;right:0;width:min(470px,100%);height:100vh;background:var(--panel);border-left:1px solid var(--line);box-shadow:-8px 0 30px rgba(20,32,46,.12);transform:translateX(100%);visibility:hidden;transition:transform .2s,visibility .2s;z-index:20;display:flex;flex-direction:column}
+.drawer.open{transform:none;visibility:visible}.drawer-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:18px 20px;border-bottom:1px solid var(--line)}.drawer-head h2{margin:0 0 2px}.drawer-body{overflow:auto;padding:4px 20px 30px}
+.close{background:#eef1f5;color:var(--ink);width:34px;height:34px;padding:0;border-radius:50%;font-size:18px;line-height:1}
+.flags{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px}.flags label{flex-direction:row;align-items:center;gap:8px;font-size:14px}
+.history{list-style:none;padding:0;margin:0}.history li{position:relative;padding:0 0 16px 22px}.history li:before{content:"";position:absolute;left:5px;top:16px;bottom:0;width:2px;background:var(--line)}.history li:last-child:before{display:none}
+.history .marker{position:absolute;left:0;top:5px;width:12px;height:12px;border-radius:50%;background:#b8c2d0}.history .marker.ok{background:var(--ok)}.history .marker.warn{background:#e0a526}.history .marker.bad{background:#d9663f}.history .marker.blue{background:#3f7fd9}
+.editor{margin:8px 0;padding:10px;border:1px solid #f1d38f;background:#fffaf0;border-radius:10px}.editor.plain{border-color:var(--line);background:#f8fafc}.editor textarea{background:#fff}.ed-status{display:block;margin-top:4px}button.ai{background:#5b3fb5}button.ai:hover:not(:disabled){background:#48309a}.modepick{flex-direction:row;align-items:center;gap:8px;font-size:13px;margin-bottom:8px}.modepick select{padding:5px 8px}.bubble{background:#f1f5fa;border-radius:12px 12px 12px 4px;padding:9px 12px;margin:6px 0;white-space:pre-wrap}.actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.scrim{position:fixed;inset:0;background:rgba(20,32,46,.25);opacity:0;pointer-events:none;transition:opacity .2s;z-index:19}.scrim.open{opacity:1;pointer-events:auto}
+
+/* Sequences */
+.camp{border:1px solid var(--line);border-radius:12px;margin-top:12px;background:#fff;overflow:hidden}.camp.open{border-color:#9db7da;box-shadow:0 2px 10px rgba(35,75,125,.08)}
+.camp-head{width:100%;display:flex;align-items:center;gap:12px;background:#fff;color:var(--ink);padding:15px 18px;border-radius:0;text-align:left}.camp-head:hover:not(:disabled){background:#f5f8fc}
+.camp-head .chev{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:7px;background:#eef1f5;color:var(--brand);font-size:12px;transition:transform .15s,background .15s;flex:none}.camp-head:hover .chev{background:#dbe4ef}.camp-unsaved{font-size:12px;color:#1d4f91;background:#e3f0ff;border-radius:20px;padding:2px 9px;font-weight:600}.camp.open .chev{transform:rotate(90deg)}.camp-name{font-weight:700;font-size:15px}.camp-sum{margin-left:auto;font-size:13px;color:var(--muted)}
+.camp-body{border-top:1px solid var(--line);padding:18px;background:#fbfcfe}.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}.toolbar .inline{flex-direction:row;align-items:center;gap:6px;font-size:14px}.toolbar .inline input{width:80px;padding:6px}.toolbar .spacer{flex:1}
+#draft-ai{background:#5b3fb5}#draft-ai:hover:not(:disabled){background:#48309a}
+.timeline{margin-top:8px}.stage{position:relative;padding-left:46px;padding-bottom:18px}.stage:before{content:"";position:absolute;left:15px;top:34px;bottom:0;width:2px;background:var(--line)}.stage:last-child:before{display:none}
+.num{position:absolute;left:0;top:0;width:32px;height:32px;border-radius:50%;background:var(--brand);color:#fff;display:grid;place-items:center;font-weight:700}
+.email{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px}.kind{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}.email details{margin-top:6px;font-size:13px}.email details p{white-space:pre-line;margin:6px 0 0}
+.sms{margin:10px 0 0 22px;border:1px solid #c9dcc9;border-left:4px solid var(--ok);background:#f6fbf7;border-radius:10px;padding:12px 14px}.sms.off{border-color:var(--line);border-left-color:#b8c2d0;background:#f6f7f9}.sms.off textarea{opacity:.6}
+.sms-line{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:8px;font-size:14px}.sms-line label{flex-direction:row;align-items:center;gap:6px;font-size:14px;font-weight:600}.sms-line .delay{width:80px;padding:5px}.human{color:var(--muted)}.sms-line .pill{margin-left:auto}
+.count{font-size:12px;color:var(--muted);text-align:right}.count.over{color:var(--bad)}
+.setup-actions{position:sticky;bottom:0;display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:#fbfcfe;padding:12px 0 2px;border-top:1px solid var(--line)}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:end}.app>*,.listview>*{min-width:0}#recipient-table,#text-table{overflow-x:auto}
+
+@media(max-width:900px){.app{grid-template-columns:1fr}.side{position:static;height:auto;flex-direction:column}.nav{display:flex;overflow-x:auto;gap:4px}.nav a{white-space:nowrap}.side-foot{margin-top:12px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}.side-foot .health{margin:0}#poll-btn{width:auto;margin:0 0 0 auto}.main{padding:18px 16px 50px}.listview{grid-template-columns:1fr}.filters{position:static;display:flex;overflow-x:auto;gap:4px}.filters h4{display:none}.filters button{white-space:nowrap;width:auto;gap:8px}.flags{grid-template-columns:1fr}}
+</style>
+<div class="app">
+<aside class="side">
+ <div class="brand"><div class="logo">EA</div><div>SMS Follow-up<small>EA Tax Resolutions</small></div></div>
+ <nav class="nav" aria-label="Main">
+  <a href="#/overview" data-view="overview"><svg viewBox="0 0 24 24"><path d="M3 12l9-8 9 8M5 10v10h14V10"/></svg>Overview</a>
+  <a href="#/sequences" data-view="sequences"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Sequences</a>
+  <a href="#/recipients" data-view="recipients"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6M17 11a3 3 0 100-6M22 21c0-3-2-5-5-5"/></svg>Recipients<span class="count" id="nav-recipients"></span></a>
+  <a href="#/texts" data-view="texts"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg>Texts<span id="nav-texts"></span></a>
+  <a href="#/opt-outs" data-view="opt-outs"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M6 6l12 12"/></svg>Opt-outs<span class="count" id="nav-optouts"></span></a>
+  <a href="#/activity" data-view="activity"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>Activity</a>
+ </nav>
+ <div class="side-foot">
+  <span id="mode" class="mode"></span>
+  <div id="health" class="health" role="status" aria-live="polite"><span class="dot"></span><span id="health-text"></span></div>
+  <div id="health-ago"></div>
+  <button id="poll-btn" type="button"><span class="spin" aria-hidden="true"></span><span class="label">Poll now</span></button>
+ </div>
+</aside>
+<main class="main">
+ <div class="page-head"><div><h1 id="page-title"></h1><p id="page-sub"></p></div><span id="notice" role="alert"></span></div>
+ <div id="needs-banner" class="needs" role="alert" hidden></div>
+
+ <section data-page="overview" hidden>
+  <div class="tiles" id="tiles"></div>
+  <div class="card" id="demo" hidden><h2>Simulate a Mixmax email</h2><p>Creates a local test event. No external API is called in demo mode. Use an address containing “multi” to get a contact with three numbers.</p>
+   <form id="demoform" class="row"><label>Lead email<input name="email" value="john@example.com" required type="email"></label><label>Email stage<select name="stage"><option>1</option><option>2</option><option>3</option></select></label><label>Event ID (reuse to test duplicates)<input name="event_id" placeholder="Automatic if blank"></label><button>Create event</button></form></div>
+  <div class="card guide"><h2>How this works</h2><p>This app follows a Mixmax email with a scheduled RingCentral text. It does not text at the moment the email is sent.</p>
+   <ol><li>An email goes out from a Mixmax sequence that has texts set up under <strong>Sequences</strong>.</li><li>The app polls Mixmax every couple of minutes (or click <strong>Poll now</strong>).</li><li>It matches the recipient’s email to one RingCentral contact and picks their text number. If they have several numbers, it waits for you to choose one under <strong>Recipients</strong>.</li><li>At the due time it checks again for replies, stop conditions, opt-outs and the sequence status.</li><li>In test mode it only simulates the text. Live sending also needs an allowlisted number and your approval.</li></ol></div>
+ </section>
+
+ <section data-page="sequences" hidden>
+  <div class="card"><p style="margin-top:0">Your Mixmax sequences, with their stages in order. Each email can be followed by a text, sent a set time after that email goes out. Turning a text off cancels any texts still waiting to go out for that stage. Choose <strong>Hold for review first</strong> to check and personalize each person’s text before it goes out; texts not reviewed within 24 hours of their due time expire.</p>
+   <div id="campaign-list"><div class="empty">Loading sequences…</div></div>
+   <p style="margin-top:14px"><button type="button" class="secondary" id="reload-campaigns">Refresh sequences</button> <span id="campaign-status" role="status">Loading sequences…</span></p>
+   <div id="orphans" hidden><h3>Texts that need review</h3><p>These saved texts point to a sequence or stage that no longer exists in Mixmax, so they will not send. Move each one to the right stage, or ignore it.</p><div id="rules"></div>
+    <details id="rule-editor"><summary>Move a rule to another stage</summary><form id="ruleform"><div class="row"><label>Campaign<select name="campaign" id="campaign-select" required disabled></select></label><label>Stage<select name="stage" id="stage-select" required disabled></select></label><label>Delay in minutes<input name="delay" type="number" step="0.1" min="0" max="43200" value="60" required></label><label>SMS enabled<select name="enabled"><option value="true">Yes</option><option value="false">No</option></select></label></div><label style="margin-top:10px">Text — supports {name} and {email}<textarea name="template" required></textarea></label><p id="editing-rule"></p><p><button id="save-rule" disabled>Save rule</button> <button type="button" class="secondary" id="new-rule">Clear</button></p></form></details></div>
+  </div>
+ </section>
+
+ <section data-page="recipients" hidden>
+  <div class="listview"><div class="filters" id="recipient-filters"></div>
+   <div class="listcard"><div class="listbar"><select class="seq-pick" aria-label="Sequence"></select><input type="search" id="recipient-search" placeholder="Search name, email or phone" aria-label="Search recipients"><span class="muted" id="recipient-total"></span></div>
+    <div class="bulkbar" id="recipient-bulk" hidden></div><div id="recipient-table"></div><div class="pager" id="recipient-pager"></div></div></div>
+ </section>
+
+ <section data-page="texts" hidden>
+  <div class="listview"><div class="filters" id="text-filters"></div>
+   <div class="listcard"><div class="listbar"><select class="seq-pick" aria-label="Sequence"></select><input type="search" id="text-search" placeholder="Search email, phone or message" aria-label="Search texts"><span class="muted" id="text-total"></span></div>
+    <div class="bulkbar" id="text-bulk" hidden></div><div id="text-table"></div><div class="pager" id="text-pager"></div></div></div>
+  <details class="card" style="margin-top:18px"><summary><strong>Status guide</strong></summary><p><strong>To review:</strong> a draft waiting for someone to check and approve it; it expires if not reviewed within 24 hours of its due time. <strong>Scheduled:</strong> waiting for its due time. <strong>Needs number:</strong> the recipient has several numbers; choose one. <strong>Simulated:</strong> test mode, nothing was sent. <strong>Sent:</strong> RingCentral accepted it (delivery not confirmed). <strong>Skipped:</strong> the app could not safely create a send. <strong>Cancelled:</strong> a stop condition or manual action prevented sending. <strong>Held:</strong> too old, needs review. <strong>Unknown:</strong> the send result could not be confirmed; check RingCentral before retrying.</p></details>
+ </section>
+
+ <section data-page="opt-outs" hidden>
+  <div class="card"><p style="margin-top:0">Any text a recipient sends back (including STOP) blocks future texts to that number. Clear one only after reading the conversation and confirming follow-up is appropriate. Cancelled texts stay cancelled.</p><div id="phone-stops"></div></div>
+ </section>
+
+ <section data-page="activity" hidden><div class="card"><div id="logs"></div></div></section>
+</main>
+</div>
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-label="Recipient details" aria-hidden="true"><div class="drawer-head"><div id="drawer-title"></div><button type="button" class="close" id="drawer-close" aria-label="Close">×</button></div><div class="drawer-body" id="drawer-body"></div></aside>
+<script>
+const csrf='__CSRF__';
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const date=t=>t?new Date(t*1000).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'';
+const $=id=>document.getElementById(id);
+function ago(t){let s=Math.max(0,Math.round(Date.now()/1000-t));return s<5?'just now':s<60?s+' sec ago':s<3600?Math.floor(s/60)+' min ago':s<86400?Math.floor(s/3600)+' hr ago':Math.floor(s/86400)+' days ago'}
+function table(head,rows,attrs){return rows.length?'<table><thead><tr>'+head.map(x=>'<th>'+x+'</th>').join('')+'</tr></thead><tbody>'+rows.map((x,i)=>'<tr'+(attrs?attrs(i):'')+'>'+x.map(y=>'<td>'+y+'</td>').join('')+'</tr>').join('')+'</tbody></table>':'<div class="empty">Nothing here yet.</div>'}
+async function getJSON(url){const r=await fetch(url),d=await r.json();if(!r.ok)throw Error(d.error||'Request failed');return d}
+async function post(path,data){try{let r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify(data)});let j=await r.json();if(!r.ok)throw Error(j.error);$('notice').textContent='';await refresh(true);return true}catch(e){$('notice').textContent=e.message;return false}}
+
+let current,campaigns=[],catalogReady=false,editing=null,view='overview';
+const JOB={draft:['To review','warn'],expired:['Expired','grey'],pending:['Scheduled','blue'],needs_number:['Needs number','warn'],simulated:['Simulated','ok'],accepted:['Sent','ok'],sending:['Sending','blue'],skipped:['Skipped','grey'],cancelled:['Cancelled','grey'],held:['Held','bad'],unknown:['Unknown','bad']};
+const LEAD={needs_number:['Needs a number','warn'],to_review:['To review','warn'],scheduled:['Text scheduled','blue'],texted:['Texted','ok'],no_text:['No text','grey'],stopped:['Stopped','bad']};
+const pill=(map,k)=>{const [t,c]=map[k]||[k,'grey'];return '<span class="pill '+c+'">'+esc(t)+'</span>'};
+function seqLabel(campaign,stage){const c=campaigns.find(x=>x.id===campaign),s=c?.stages.find(x=>x.id===stage);return c?esc(c.name)+(stage===undefined?'':s?' · Stage '+s.number:' · removed stage'):'<span class="muted">Sequence …'+esc(String(campaign||'').slice(-6))+'</span>'}
+
+/* ---------- routing ---------- */
+const PAGES={overview:['Overview','How follow-up texts are doing at a glance.'],sequences:['Sequences','Choose which emails are followed by a text, and what it says.'],recipients:['Recipients','Everyone in your Mixmax sequences, and where their texts stand.'],texts:['Texts','Every follow-up text the app has scheduled, sent or stopped.'],'opt-outs':['Opt-outs','Numbers that replied, so the app will not text them again.'],activity:['Activity','Errors and manual changes, newest first.']};
+function route(){
+ const [path,qs]=(location.hash.slice(2)||'overview').split('?'),params=new URLSearchParams(qs||'');
+ view=PAGES[path]?path:'overview';
+ document.querySelectorAll('[data-page]').forEach(s=>s.hidden=s.dataset.page!==view);
+ document.querySelectorAll('.nav a').forEach(a=>a.classList.toggle('active',a.dataset.view===view));
+ $('page-title').textContent=PAGES[view][0];$('page-sub').textContent=PAGES[view][1];
+ if(params.has('seq')){seqFilter=params.get('seq');fillSeqPicks()}
+ if(view==='recipients'){if(params.has('status'))lists.recipients.status=params.get('status');lists.recipients.page=1;loadList('recipients')}
+ if(view==='texts'){if(params.has('status'))lists.texts.status=params.get('status');lists.texts.page=1;loadList('texts')}
+ if(view==='sequences'&&!catalogReady)loadCampaigns();
+}
+window.addEventListener('hashchange',route);
+
+/* ---------- summary refresh ---------- */
+async function refresh(force){
+ let r=await fetch('/api/state');if(!r.ok)return;const s=await r.json();current=s;
+ $('mode').textContent=(s.demo?'DEMO DATA':'LIVE DATA')+' · '+(s.test?'TEST MODE':'REAL SMS');$('mode').classList.toggle('live',!s.test);$('demo').hidden=!s.demo;
+ renderHealth(s);renderRules();
+ const jc=s.job_counts||{},n=k=>jc[k]||0,waiting=n('needs_number'),drafts=n('draft'),review=n('held')+n('unknown');
+ $('nav-recipients').textContent=s.lead_count||'';$('nav-optouts').textContent=s.phone_stops.length||'';
+ const attention=waiting+drafts+review;$('nav-texts').className=attention?'alert':'count';$('nav-texts').textContent=attention||'';
+ const banner=$('needs-banner'),notes=[];
+ if(drafts)notes.push(drafts+' text'+(drafts===1?' is':'s are')+' waiting for your review. <a href="#/texts?status=draft">Review texts</a>');
+ if(waiting)notes.push(waiting+' text'+(waiting===1?' is':'s are')+' waiting for you to choose a phone number. <a href="#/recipients?status=needs_number">Choose numbers</a>');
+ banner.hidden=!notes.length;banner.innerHTML=notes.map(x=>'⚠ '+x).join('<br>');
+ const tile=(label,value,href,warn)=>'<a class="tile'+(warn&&value?' warn':'')+'" href="'+href+'"><span>'+label+'</span><b>'+value+'</b></a>';
+ $('tiles').innerHTML=tile('Recipients',s.lead_count,'#/recipients')+tile('Texts scheduled',n('pending'),'#/texts?status=pending')+tile(s.test?'Texts simulated':'Texts sent',n('simulated')+n('accepted'),'#/texts?status=sent')+tile('To review',drafts,'#/texts?status=draft',1)+tile('Need a number',waiting,'#/recipients?status=needs_number',1)+tile('Need review',review,'#/texts?status=review',1)+tile('Opt-outs',s.phone_stops.length,'#/opt-outs');
+ $('phone-stops').innerHTML=table(['Phone','Reason','Review'],s.phone_stops.map(x=>[esc(x.phone),esc(x.reason),'<button class="small secondary" data-clear-phone="'+esc(x.phone)+'">Clear opt-out</button>']));
+ $('logs').innerHTML=s.logs.map(x=>'<p><small>'+date(x.at)+'</small> &nbsp;'+esc(x.message)+'</p>').join('')||'<div class="empty">No errors or manual changes.</div>';
+ const busy=document.activeElement&&document.activeElement.matches('select,input:not([type=search]),textarea');
+ if(!busy||force){if(view==='recipients')loadList('recipients');if(view==='texts')loadList('texts');if(drawerEmail)openDrawer(drawerEmail,force?'reload':'quiet')}
+}
+
+/* ---------- paged lists ---------- */
+let seqFilter='';
+const lists={
+ recipients:{status:'',q:'',page:1,stage:'',rows:[],sel:new Map(),url:'/api/recipients',filters:[['','All recipients','all'],['needs_number','Needs a number','needs_number'],['to_review','To review','to_review'],['scheduled','Text scheduled','scheduled'],['texted','Texted','texted'],['no_text','No text yet','no_text'],['stopped','Stopped','stopped']]},
+ texts:{status:'',q:'',page:1,rows:[],sel:new Map(),open:new Set(),url:'/api/jobs',filters:[['','All texts','all'],['draft','To review','draft'],['needs_number','Needs number','needs_number'],['pending','Scheduled','pending'],['sent','Sent / simulated','sent'],['review','Needs review','review'],['skipped','Skipped','skipped'],['cancelled','Cancelled / expired','cancelled']]}};
+function fillSeqPicks(){document.querySelectorAll('.seq-pick').forEach(sel=>{sel.innerHTML='<option value="">All sequences</option>'+campaigns.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>').join('');sel.value=seqFilter})}
+document.addEventListener('change',e=>{if(e.target.classList.contains('seq-pick')){seqFilter=e.target.value;fillSeqPicks();for(const n of ['recipients','texts']){lists[n].page=1;lists[n].stage='';lists[n].sel.clear()}loadList(view==='texts'?'texts':'recipients')}});
+function mixmaxLabel(x){
+ if(!x.state)return '<span class="muted">—</span>';
+ const reason={exhausted:'Finished',manual:'Exited: manually',replied:'Replied',bounced:'Bounced',unsubscribed:'Unsubscribed'};
+ const label=x.state==='active'?'Active':x.state==='paused'?'Paused':x.state==='completed'?(reason[x.reason]||'Exited'+(x.reason?': '+x.reason:'')):x.state[0].toUpperCase()+x.state.slice(1);
+ return '<span class="mx">'+esc(label)+(x.replied?' · <span class="tick" title="Replied to an email">✓ replied</span>':'')+'</span>';
+}
+function nextText(x){
+ if(!x.next_text)return '<span class="muted">—</span>';
+ const t=x.next_text;return '<span class="nowrap">'+date(t.at)+'</span>'+(t.kind==='scheduled'?'':t.kind==='draft'?'<span class="planned flag">Draft · waiting for review</span>':'<span class="planned">'+(t.kind==='review'?'Stage '+t.stage+' · will need review':'Stage '+t.stage+' · planned')+'</span>')+(t.no_number?'<span class="planned flag">No phone number found yet</span>':'');
+}
+async function loadList(name){
+ const L=lists[name],key=name==='recipients'?'recipient':'text',params={q:L.q,status:L.status,page:L.page,campaign:seqFilter};
+ if(name==='recipients')params.stage=L.stage;
+ let d;try{d=await getJSON(L.url+'?'+new URLSearchParams(params))}catch(e){$(key+'-table').innerHTML='<div class="empty flag">'+esc(e.message)+'</div>';return}
+ L.rows=d.rows;
+ let filters='<h4>'+(name==='recipients'?'TEXT STATUS':'TEXTS')+'</h4>'+L.filters.map(([v,label,c])=>'<button type="button" data-list="'+name+'" data-filter="'+v+'" class="'+(L.status===v?'on':'')+'">'+label+'<span>'+(d.counts[c]??0)+'</span></button>').join('');
+ const camp=campaigns.find(c=>c.id===seqFilter);
+ if(name==='recipients'&&camp)filters+='<h4 style="margin-top:16px">LAST STAGE SENT</h4><button type="button" data-stage-filter="" class="'+(L.stage===''?'on':'')+'">All stages<span>'+d.counts.all+'</span></button>'+
+  camp.stages.map(st=>'<button type="button" data-stage-filter="'+st.number+'" class="'+(L.stage===String(st.number)?'on':'')+'">Stage '+st.number+'<span>'+(d.stages[st.number]||0)+'</span></button>').join('')+
+  (d.stages[0]?'<button type="button" data-stage-filter="0" class="'+(L.stage==='0'?'on':'')+'">Not started<span>'+d.stages[0]+'</span></button>':'');
+ $(key+'-filters').innerHTML=filters;
+ $(key+'-total').textContent=name==='recipients'?d.total+' recipient'+(d.total===1?'':'s'):d.total+' recipient'+(d.total===1?'':'s')+' · '+d.texts+' text'+(d.texts===1?'':'s');
+ const box=(k)=>'<input type="checkbox" data-sel="'+name+'" data-key="'+esc(k)+'" '+(L.sel.has(k)?'checked':'')+' aria-label="Select">';
+ const allBox='<input type="checkbox" data-sel-all="'+name+'" aria-label="Select all on this page" '+(d.rows.length&&d.rows.every(x=>L.sel.has(rowKey(name,x)))?'checked':'')+'>';
+ if(name==='recipients')$(key+'-table').innerHTML=table([allBox,'Recipient',...(seqFilter?[]:['Sequence']),'Mixmax','Last stage','Next email','Next text','Text status','Text number'],d.rows.map(x=>[box(rowKey(name,x)),
+  '<div class="who"><b>'+esc(x.name)+'</b><small>'+esc(x.email)+'</small></div>',...(seqFilter?[]:[seqLabel(x.campaign)]),mixmaxLabel(x),
+  x.last_stage?'Stage '+x.last_stage:'<span class="muted">—</span>',x.next_at?'<span class="nowrap">'+date(x.next_at)+'</span><span class="planned">Stage '+x.next_stage+'</span>':'<span class="muted">—</span>',
+  nextText(x),pill(LEAD,x.status),x.phone?esc(x.phone):x.status==='needs_number'?'<span class="flag">Choose a number</span>':'<span class="muted">—</span>']),i=>' class="clickable'+(d.rows[i].email===drawerEmail?' selected':'')+'" data-open="'+esc(d.rows[i].email)+'"');
+ else $(key+'-table').innerHTML=textGroups(d.rows,allBox,box);
+ if(name==='recipients')$(key+'-table').querySelectorAll('th:first-child,td:first-child').forEach(c=>c.classList.add('sel'));else $(key+'-table').querySelector('th')?.classList.add('sel');
+ const pages=Math.max(1,Math.ceil(d.total/d.per_page));
+ $(key+'-pager').innerHTML=d.total>d.per_page?'<button class="small secondary" data-page-list="'+name+'" data-to="'+(L.page-1)+'" '+(L.page<=1?'disabled':'')+'>‹ Previous</button> Page '+L.page+' of '+pages+' <button class="small secondary" data-page-list="'+name+'" data-to="'+(L.page+1)+'" '+(L.page>=pages?'disabled':'')+'>Next ›</button>':'';
+ renderBulk(name);
+}
+const rowKey=(name,x)=>x.campaign+'|'+x.email;
+function stageNo(campaign,stage){return campaigns.find(c=>c.id===campaign)?.stages.find(s=>s.id===stage)?.number}
+function textGroups(rows,allBox,box){
+ if(!rows.length)return '<div class="empty">Nothing here yet.</div>';
+ const L=lists.texts;
+ // One row per person per sequence; the arrow reveals each stage's text.
+ return '<table><thead><tr><th>'+allBox+'</th><th></th><th>Recipient</th><th>Sequence</th><th>Current text</th><th>Stages</th><th></th></tr></thead><tbody>'+rows.map(g=>{
+  const k=rowKey('texts',g),open=L.open.has(k);
+  const current=g.jobs.find(j=>['needs_number','draft','held','unknown'].includes(j.status))||g.jobs.find(j=>j.status==='pending')||g.jobs[g.jobs.length-1];
+  const n=stageNo(g.campaign,current.stage);
+  const chips='<div class="chips">'+g.jobs.map(j=>{const [label,c]=JOB[j.status]||[j.status,'grey'],no=stageNo(g.campaign,j.stage);return '<span class="chip '+c+'" title="Stage '+(no||'?')+': '+esc(label)+'">'+(no||'?')+'</span>'}).join('')+'</div>';
+  const quick=current.status==='draft'?'<button class="small" data-open="'+esc(g.email)+'" data-focus-job="'+current.id+'">Review</button>':current.status==='needs_number'?'<button class="small secondary" data-open="'+esc(g.email)+'">Choose number</button>':'';
+  let html='<tr><td class="sel">'+box(k)+'</td><td style="width:30px"><button class="expand'+(open?' on':'')+'" data-expand="'+esc(k)+'" aria-expanded="'+open+'" aria-label="Show all texts">▶</button></td>'+
+   '<td><button class="link" data-open="'+esc(g.email)+'">'+esc(g.email)+'</button><br><small>'+esc(g.phone)+'</small></td><td>'+seqLabel(g.campaign)+'</td>'+
+   '<td>'+(n?'Stage '+n+' · ':'')+pill(JOB,current.status)+'<br><small class="nowrap">'+date(current.due)+'</small></td><td>'+chips+'<small>'+g.jobs.length+' text'+(g.jobs.length===1?'':'s')+'</small></td><td>'+quick+'</td></tr>';
+  if(open)html+='<tr class="sub"><td colspan="7"><div class="stagelist">'+g.jobs.map(j=>{const no=stageNo(g.campaign,j.stage);return '<div class="stagerow"><div><strong>Stage '+(no||'?')+'</strong><br><small class="nowrap">'+date(j.due)+'</small><br><small>'+esc(j.phone||'')+'</small></div>'+
+   '<div class="textcell">'+(j.text?esc(j.text):'<span class="muted">No text</span>')+'</div><div>'+pill(JOB,j.status)+'<br><small>'+esc(j.reason)+'</small>'+jobActions(j)+'</div></div>'}).join('')+'</div></td></tr>';
+  return html}).join('')+'</tbody></table>';
+}
+function selectedIds(name){
+ // Selected rows → the texts a bulk action would touch.
+ const drafts=[],open=[];
+ for(const x of lists[name].sel.values()){
+  if(name==='recipients'){drafts.push(...x.draft_ids);open.push(...x.open_ids)}
+  else for(const j of x.jobs){if(j.status==='draft')drafts.push(j.id);if(['pending','draft','needs_number'].includes(j.status))open.push(j.id)}
+ }
+ return {drafts,open};
+}
+function renderBulk(name){
+ const L=lists[name],bar=$((name==='recipients'?'recipient':'text')+'-bulk'),{drafts,open}=selectedIds(name);
+ bar.hidden=!L.sel.size;if(!L.sel.size)return;
+ bar.innerHTML=L.sel.size+' selected <span class="spacer"></span>'+
+  '<button class="small" data-bulk="'+name+'" data-bulk-action="approve_draft" '+(drafts.length?'':'disabled')+'>✓ Approve '+drafts.length+' draft'+(drafts.length===1?'':'s')+'</button>'+
+  '<button class="small secondary" data-bulk="'+name+'" data-bulk-action="cancel" '+(open.length?'':'disabled')+'>Cancel '+open.length+' text'+(open.length===1?'':'s')+'</button>'+
+  '<button class="small secondary" data-bulk-clear="'+name+'">Clear selection</button>';
+}
+document.addEventListener('change',e=>{
+ const t=e.target;
+ if(t.dataset.sel){const L=lists[t.dataset.sel],x=L.rows.find(r=>rowKey(t.dataset.sel,r)===t.dataset.key);if(t.checked&&x)L.sel.set(t.dataset.key,x);else L.sel.delete(t.dataset.key);renderBulk(t.dataset.sel);loadList(t.dataset.sel)}
+ if(t.dataset.selAll){const n=t.dataset.selAll,L=lists[n];for(const x of L.rows){if(t.checked)L.sel.set(rowKey(n,x),x);else L.sel.delete(rowKey(n,x))}loadList(n)}
+});
+async function runBulk(name,action){
+ const {drafts,open}=selectedIds(name),ids=action==='approve_draft'?drafts:open;
+ if(!ids.length)return;
+ if(!confirm(action==='approve_draft'?'Approve '+ids.length+' draft text'+(ids.length===1?'':'s')+' without editing them? Each will go out at its scheduled time.':'Cancel '+ids.length+' text'+(ids.length===1?'':'s')+'? They will not be sent.'))return;
+ try{const r=await fetch('/api/bulk',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({action,ids})}),d=await r.json();if(!r.ok)throw Error(d.error);
+  lists[name].sel.clear();$('notice').textContent='';await refresh(true);
+  alert((action==='approve_draft'?'Approved ':'Cancelled ')+d.done+' text'+(d.done===1?'':'s')+'.'+(d.skipped?' '+d.skipped+' had already changed and were skipped.':''));
+ }catch(e){$('notice').textContent=e.message}
+}
+function jobActions(x,inDrawer){
+ const open=(label,cls)=>inDrawer?'':'<button class="small '+cls+'" data-open="'+esc(x.email)+'" data-focus-job="'+x.id+'">'+label+'</button>';
+ const cancel='<button class="small secondary" data-job="'+x.id+'" data-action="cancel">Cancel text</button>';
+ if(x.status==='draft')return '<div class="actions">'+open('Review','')+cancel+'</div>';
+ if(x.status==='needs_number')return '<div class="actions">'+open('Choose number','secondary')+cancel+'</div>';
+ if(x.status!=='pending')return '';
+ return '<div class="actions">'+open('Edit','secondary')+'<button class="small secondary" data-job="'+x.id+'" data-action="now">Send now</button>'+cancel+(current&&!current.test?'<button class="small" data-job="'+x.id+'" data-action="approve" '+(x.approved?'disabled':'')+'>'+(x.approved?'Approved':'Approve live send')+'</button>':'')+'</div>';
+}
+let searchTimer;
+for(const name of ['recipients','texts']){const input=$((name==='recipients'?'recipient':'text')+'-search');input.addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>{lists[name].q=input.value;lists[name].page=1;loadList(name)},250)})}
+
+/* ---------- recipient drawer ---------- */
+let drawerEmail='';
+const FLAGS=[['replied','Replied to email'],['paused','Paused'],['converted','Converted'],['paid','Paid'],['signed','Signed'],['opted_out','Opted out']];
+function drawerBusy(){return document.activeElement?.closest('#drawer')||[...document.querySelectorAll('#drawer .editor')].some(e=>(!e.hidden&&e.dataset.kind!=='draft')||e.querySelector('textarea').value!==e.dataset.orig)}
+async function openDrawer(email,mode,focusJob){
+ const quiet=mode==='quiet'||mode==='reload';
+ if(mode==='quiet'&&email===drawerEmail&&drawerBusy())return;
+ drawerEmail=email;$('drawer').classList.add('open');$('scrim').classList.add('open');$('drawer').setAttribute('aria-hidden','false');
+ document.querySelectorAll('tr[data-open]').forEach(r=>r.classList.toggle('selected',r.dataset.open===email));
+ if(!quiet)$('drawer-body').innerHTML='<div class="empty">Loading…</div>';
+ let d;try{d=await getJSON('/api/recipient?email='+encodeURIComponent(email))}catch(e){$('drawer-body').innerHTML='<div class="empty flag">'+esc(e.message)+'</div>';return}
+ if(drawerEmail!==email)return;
+ const L=d.lead;let options=[];try{options=JSON.parse(L.phone_options||'[]')}catch(e){}
+ const waiting=d.jobs.filter(j=>j.status==='needs_number').length;
+ $('drawer-title').innerHTML='<h2>'+esc(L.name)+'</h2><small>'+esc(L.email)+'</small>';
+ let number;
+ if(!options.length)number='<p>'+(L.phone?esc(L.phone):'No usable number on their RingCentral contact. Add a number in international format (like +13235550101) to the contact, then poll again.')+'</p>';
+ else if(options.length===1)number='<p><strong>'+esc(options[0].label)+'</strong> · '+esc(options[0].number)+'</p>';
+ else number=(waiting?'<p class="flag">⚠ '+waiting+' text'+(waiting===1?' is':'s are')+' waiting until you choose a number.</p>':'<p>They have several numbers. Texts go to the one selected.</p>')+
+  '<select id="drawer-phone" aria-label="Text number">'+(L.phone?'':'<option value="">Choose a number…</option>')+options.map(o=>'<option value="'+esc(o.number)+'" '+(o.number===L.phone?'selected':'')+'>'+esc(o.label)+' · '+esc(o.number)+'</option>').join('')+'</select>';
+ if(d.phone_stop)number+='<p class="flag">This number opted out: '+esc(d.phone_stop)+'. <a href="#/opt-outs">Review opt-outs</a></p>';
+ const history=d.jobs.map(j=>{const [,c]=JOB[j.status]||['','grey'];return '<li data-job-item="'+j.id+'"><span class="marker '+c+'"></span><div>'+pill(JOB,j.status)+' &nbsp;<strong>'+seqLabel(j.campaign,j.stage)+'</strong></div>'+
+  '<small>'+(['pending','needs_number','draft'].includes(j.status)?'Due ':'')+date(j.due)+(j.phone?' · to '+esc(j.phone):'')+'</small>'+
+  (j.status==='draft'?editor(j,'draft'):(j.text?'<div class="bubble">'+esc(j.text)+'</div>':'')+(['pending','needs_number'].includes(j.status)?editor(j,'plain'):''))+
+  (j.reason?'<small>'+esc(j.reason)+'</small>':'')+jobActions(j,true)+'</li>'}).join('');
+ $('drawer-body').innerHTML='<h3>Text number</h3>'+number+
+  '<h3>Stop conditions</h3><p>Checking any of these cancels their scheduled texts.</p><div class="flags">'+FLAGS.map(([f,label])=>'<label><input type="checkbox" data-flag="'+f+'" '+(L[f]?'checked':'')+'> '+label+'</label>').join('')+'</div>'+
+  (d.sequences.length?'<h3>Sequences</h3><ul class="seqs">'+d.sequences.map(m=>'<li><strong>'+seqLabel(m.campaign)+'</strong><br>'+mixmaxLabel(m)+(m.last_stage?' · Stage '+m.last_stage+' sent':'')+(m.next_at?'<br><small>Next email: Stage '+m.next_stage+' · '+date(m.next_at)+'</small>':'')+'</li>').join('')+'</ul>':'')+
+  '<h3>Text history</h3>'+(history?'<ul class="history">'+history+'</ul>':'<p>No texts yet.</p>');
+ $('drawer-body').querySelectorAll('.editor').forEach(e=>{e.dataset.orig=e.querySelector('textarea').value;edCount(e)});
+ if(focusJob){const item=$('drawer-body').querySelector('[data-job-item="'+focusJob+'"]');if(item){const ed=item.querySelector('.editor');if(ed){ed.hidden=false;ed.querySelector('textarea').focus()}item.scrollIntoView({block:'center'})}}
+}
+function editor(j,kind){
+ return '<div class="editor '+kind+'" data-kind="'+kind+'" data-editor="'+j.id+'"'+(kind==='draft'?'':' hidden')+'>'+(kind==='draft'?'<small>Edit this text for '+esc(j.email)+', then approve it.</small>':'')+
+  '<textarea aria-label="Text message">'+esc(j.text)+'</textarea><div class="count"></div><div class="actions">'+
+  (kind==='draft'?'<button class="small" data-ed="approve">✓ Approve &amp; schedule</button>':'')+
+  '<button class="small secondary" data-ed="save">Save text</button><button class="small ai" data-ed="ai">✨ Personalize with AI</button>'+
+  (kind==='draft'?'':'<button class="small secondary" data-ed="close">Close</button>')+'</div><small class="ed-status" role="status"></small></div>'+
+  (kind==='draft'?'':'<div class="actions"><button class="small secondary" data-ed="open" data-ed-job="'+j.id+'">Edit text</button></div>');
+}
+function edCount(e){const t=e.querySelector('textarea'),c=e.querySelector('.count');c.textContent=t.value.length+' / 320 characters';c.classList.toggle('over',t.value.length>320)}
+$('drawer').addEventListener('input',e=>{const ed=e.target.closest('.editor');if(ed)edCount(ed)});
+$('drawer').addEventListener('click',async e=>{
+ const b=e.target.closest('[data-ed]');if(!b)return;
+ if(b.dataset.ed==='open'){const ed=$('drawer').querySelector('[data-editor="'+b.dataset.edJob+'"]');ed.hidden=false;b.parentElement.hidden=true;ed.querySelector('textarea').focus();return}
+ const ed=b.closest('.editor'),id=Number(ed.dataset.editor),text=ed.querySelector('textarea').value.trim(),status=ed.querySelector('.ed-status');
+ if(b.dataset.ed==='close'){ed.querySelector('textarea').value=ed.dataset.orig;ed.hidden=true;ed.nextElementSibling.hidden=false;return}
+ if(b.dataset.ed==='ai'){
+  b.disabled=true;b.textContent='Personalizing…';status.textContent='Reading the email this person received…';
+  try{const r=await fetch('/api/personalize',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({id})}),d=await r.json();if(!r.ok)throw Error(d.error);
+   ed.querySelector('textarea').value=d.text;edCount(ed);status.textContent='Suggestion ready. Review it, then '+(ed.dataset.kind==='draft'?'approve or save.':'save.')}
+  catch(err){status.textContent=err.message}finally{b.disabled=false;b.textContent='✨ Personalize with AI'}
+  return}
+ if(!text){status.textContent='The text cannot be empty.';return}
+ if(text.length>320&&!confirm('This text is over 320 characters and may arrive as several messages. Continue?'))return;
+ b.disabled=true;
+ if(await post('/api/job',{id,action:b.dataset.ed==='approve'?'approve_draft':'edit',text}))$('notice').textContent='';
+ b.disabled=false;
+});
+function closeDrawer(){drawerEmail='';$('drawer').classList.remove('open');$('scrim').classList.remove('open');$('drawer').setAttribute('aria-hidden','true');document.querySelectorAll('tr.selected').forEach(r=>r.classList.remove('selected'))}
+$('drawer-close').onclick=closeDrawer;$('scrim').onclick=closeDrawer;document.addEventListener('keydown',e=>{if(e.key==='Escape'&&drawerEmail)closeDrawer()});
+$('drawer').addEventListener('change',e=>{
+ if(e.target.id==='drawer-phone'){const label=e.target.selectedOptions[0].textContent;e.target.blur();if(e.target.value&&confirm('Send '+drawerEmail+'’s texts to '+label+'? Waiting texts will use this number.'))post('/api/lead-phone',{email:drawerEmail,phone:e.target.value});else openDrawer(drawerEmail,'reload')}
+ if(e.target.dataset.flag){e.target.blur();post('/api/flag',{email:drawerEmail,flag:e.target.dataset.flag,value:e.target.checked})}
+});
+
+/* ---------- global clicks ---------- */
+document.addEventListener('click',e=>{
+ if(e.target.closest('td.sel,th.sel'))return;
+ const t=e.target.closest('button,tr[data-open]');if(!t)return;
+ if(t.dataset.stageFilter!==undefined){lists.recipients.stage=t.dataset.stageFilter;lists.recipients.page=1;loadList('recipients');return}
+ if(t.dataset.bulk){runBulk(t.dataset.bulk,t.dataset.bulkAction);return}
+ if(t.dataset.expand){const o=lists.texts.open;o.has(t.dataset.expand)?o.delete(t.dataset.expand):o.add(t.dataset.expand);loadList('texts');return}
+ if(t.dataset.bulkClear){lists[t.dataset.bulkClear].sel.clear();loadList(t.dataset.bulkClear);return}
+ if(t.dataset.open){openDrawer(t.dataset.open,'',t.dataset.focusJob);return}
+ if(t.dataset.list){lists[t.dataset.list].status=t.dataset.filter;lists[t.dataset.list].page=1;lists[t.dataset.list].sel.clear();loadList(t.dataset.list)}
+ if(t.dataset.pageList){lists[t.dataset.pageList].page=Number(t.dataset.to);loadList(t.dataset.pageList)}
+ if(t.dataset.job){const a=t.dataset.action;if(a==='cancel'&&!confirm('Cancel this text? It will not be sent.'))return;post('/api/job',{id:Number(t.dataset.job),action:a})}
+ if(t.dataset.clearPhone){let note=prompt('Review note: why is follow-up appropriate for this number?');if(note&&note.trim())post('/api/phone-stop',{phone:t.dataset.clearPhone,note})}
+ if(t.dataset.editRule!==undefined)editRule(Number(t.dataset.editRule));
+});
+$('demoform').onsubmit=e=>{e.preventDefault();post('/api/demo',Object.fromEntries(new FormData(e.target)))};
+
+/* ---------- health + poll button ---------- */
+const pollBtn=$('poll-btn'),pollLabel=pollBtn.querySelector('.label');let polling=false;
+function renderHealth(s){const h=$('health'),bad=/^Paused/.test(s.health);h.classList.toggle('ok',!bad&&(s.demo||!!s.last_poll));h.classList.toggle('bad',bad);$('health-text').textContent=s.health;$('health-ago').textContent=s.last_poll?'Last poll '+ago(s.last_poll):''}
+setInterval(()=>{if(current)renderHealth(current)},1000);
+pollBtn.onclick=async()=>{if(polling)return;polling=true;const before=current?.last_poll||0,beforeLog=current?.logs?.[0]?.id;
+ pollBtn.disabled=true;pollBtn.classList.add('busy');pollLabel.textContent='Polling…';
+ let ok=await post('/api/poll',{}),done=false;
+ // The server polls in the background, so wait until it reports a new poll time (or a failure).
+ for(let i=0;ok&&!done&&i<45;i++){await new Promise(r=>setTimeout(r,1000));await refresh();done=current.demo||current.last_poll>before||(/^Paused/.test(current.health)&&current.logs?.[0]?.id!==beforeLog)}
+ pollBtn.classList.remove('busy');pollBtn.disabled=false;
+ if(done&&!/^Paused/.test(current.health)){pollLabel.textContent='✓ Updated';pollBtn.classList.add('done')}else pollLabel.textContent=done||!ok?'Poll failed':'Still running…';
+ setTimeout(()=>{pollLabel.textContent='Poll now';pollBtn.classList.remove('done');polling=false},2000)};
+
+/* ---------- sequences ---------- */
+const ruleForm=$('ruleform'),campaignSelect=$('campaign-select'),stageSelect=$('stage-select'),list=$('campaign-list');
+let openId='',setupStages=[],setupDirty=false;
+function selectedCampaign(){return campaigns.find(x=>x.id===campaignSelect.value)}
+function updateStages(wanted=''){const campaign=selectedCampaign();stageSelect.replaceChildren(new Option('Choose a stage',''));for(const stage of campaign?.stages||[])stageSelect.add(new Option('Stage '+stage.number,stage.id));stageSelect.value=wanted;stageSelect.disabled=!catalogReady||!campaign;$('save-rule').disabled=!catalogReady||!stageSelect.value}
+function renderRules(){
+ if(!current)return;renderSummaries();
+ const rows=[];current.rules.forEach((x,i)=>{const campaign=campaigns.find(c=>c.id===x.campaign),stage=campaign?.stages.find(t=>t.id===x.stage);if(!catalogReady||(campaign&&stage))return;
+  rows.push([esc(campaign?.name||'Deleted sequence')+'<br><small>'+esc(x.campaign)+'</small>',campaign?'Stage no longer exists':'Sequence no longer exists',esc(x.template),'<button class="small secondary" data-edit-rule="'+i+'">Move…</button>'])});
+ $('orphans').hidden=!rows.length;$('rules').innerHTML=table(['Sequence','Problem','Text','Fix'],rows);
+}
+async function loadCampaigns(){
+ const previousCampaign=campaignSelect.value,previousStage=stageSelect.value;catalogReady=false;campaignSelect.disabled=true;stageSelect.disabled=true;$('save-rule').disabled=true;$('reload-campaigns').disabled=true;$('campaign-status').textContent='Loading sequences…';renderRules();
+ try{const data=await getJSON('/api/campaigns');campaigns=data.campaigns;catalogReady=true;
+  campaignSelect.replaceChildren(new Option('Choose a sequence',''));const names=campaigns.map(x=>x.name);
+  for(const c of campaigns){const dup=names.filter(n=>n===c.name).length>1;campaignSelect.add(new Option(c.name+(dup?' ('+c.id+')':''),c.id))}
+  campaignSelect.value=previousCampaign;campaignSelect.disabled=!campaigns.length;updateStages(previousStage);renderCampaigns();fillSeqPicks();
+  $('campaign-status').textContent=campaigns.length?'Open a sequence to set up its texts.':'No sequences found in this account.';
+  if(view==='recipients')loadList('recipients');if(view==='texts')loadList('texts');if(drawerEmail)openDrawer(drawerEmail,'quiet');
+ }catch(e){$('campaign-status').textContent=e.message+' Use Refresh sequences to retry.'}
+ finally{$('reload-campaigns').disabled=false;renderRules()}
+}
+function editSingleRule(index){const rule=current.rules[index];editing={campaign:rule.campaign,stage:rule.stage};campaignSelect.value=rule.campaign;updateStages(rule.stage);ruleForm.elements.delay.value=rule.delay;ruleForm.elements.enabled.value=String(Boolean(rule.enabled));ruleForm.elements.template.value=rule.template;$('editing-rule').textContent='Editing a saved rule. Choose its replacement stage. Moving it cancels waiting texts for the old stage.';$('rule-editor').open=true}
+campaignSelect.onchange=()=>updateStages();stageSelect.onchange=()=>{$('save-rule').disabled=!catalogReady||!stageSelect.value};
+$('reload-campaigns').onclick=loadCampaigns;
+$('new-rule').onclick=()=>{editing=null;ruleForm.reset();campaignSelect.value='';updateStages();$('editing-rule').textContent=''};
+ruleForm.onsubmit=async e=>{e.preventDefault();if(!catalogReady)return;let d=Object.fromEntries(new FormData(e.target));d.enabled=d.enabled==='true';d.stage_number=selectedCampaign()?.stages.find(s=>s.id===d.stage)?.number;if(editing)d.original=editing;$('save-rule').disabled=true;try{if(await post('/api/rule',d)){editing={campaign:d.campaign,stage:d.stage};$('editing-rule').textContent='Rule saved.'}}finally{$('save-rule').disabled=!catalogReady||!stageSelect.value}};
+const human=m=>{m=Number(m);if(!(m>=0))return'';if(m===0)return'sent right away';const u=m<60?[m,'minute']:m<1440?[+(m/60).toFixed(1),'hour']:[+(m/1440).toFixed(1),'day'];return'= '+u[0]+' '+u[1]+(u[0]===1?'':'s')};
+function summary(c){const rules=(current?.rules||[]).filter(r=>r.campaign===c.id&&c.stages.some(s=>s.id===r.stage)),on=rules.filter(r=>r.enabled).length;return c.stages.length+' stage'+(c.stages.length===1?'':'s')+' · '+(on?on+' text'+(on===1?'':'s')+' on':'no texts set up')}
+function renderSummaries(){for(const c of campaigns){const el=list.querySelector('.camp[data-id="'+CSS.escape(c.id)+'"] .camp-sum');if(el)el.textContent=summary(c)}}
+function renderCampaigns(){
+ const keep=openId&&list.querySelector('.camp-body'),wasOpen=!!list.querySelector('.camp.open');
+ list.innerHTML=campaigns.length?campaigns.map(c=>'<div class="camp" data-id="'+esc(c.id)+'"><button type="button" class="camp-head" aria-expanded="false"><span class="chev">▶</span><span class="camp-name">'+esc(c.name)+'</span><span class="camp-sum">'+esc(summary(c))+'</span></button></div>').join(''):'<div class="empty">No sequences found in this Mixmax account.</div>';
+ const camp=openId&&list.querySelector('.camp[data-id="'+CSS.escape(openId)+'"]');
+ if(camp&&keep){camp.classList.toggle('open',wasOpen);camp.firstChild.setAttribute('aria-expanded',String(wasOpen));camp.append(keep);markUnsaved()}else openId='';
+}
+function countChars(card){const t=card.querySelector('textarea'),c=card.querySelector('.count');c.textContent=t.value.length+' / 320 characters';c.classList.toggle('over',t.value.length>320)}
+function syncCard(card){const on=card.querySelector('.sms-on').checked;card.querySelector('.sms').classList.toggle('off',!on);card.querySelector('.human').textContent=on?'('+human(card.querySelector('.delay').value)+')':'';countChars(card)}
+function markChanged(card){setupDirty=true;markUnsaved();const p=card.querySelector('.pill');p.textContent='Unsaved';p.className='pill blue';syncCard(card);$('save-status').textContent=''}
+function closeCampaign(){const body=list.querySelector('.camp-body'),camp=body?.closest('.camp');if(camp){camp.classList.remove('open');camp.firstChild.setAttribute('aria-expanded','false');body.remove()}openId='';setupStages=[];setupDirty=false;markUnsaved()}
+function markUnsaved(){list.querySelectorAll('.camp-unsaved').forEach(x=>x.remove());const c=openId&&list.querySelector('.camp[data-id="'+CSS.escape(openId)+'"]');if(c&&setupDirty&&!c.classList.contains('open'))c.querySelector('.camp-sum').insertAdjacentHTML('beforebegin','<span class="camp-unsaved">Unsaved changes</span>')}
+async function openCampaign(id,focusStage){
+ if(id===openId){
+  // Same sequence: just show/hide it. Unsaved edits are kept.
+  const c=list.querySelector('.camp[data-id="'+CSS.escape(id)+'"]'),b=c?.querySelector('.camp-body');
+  if(b){const show=focusStage?true:!c.classList.contains('open');c.classList.toggle('open',show);b.hidden=!show;c.firstChild.setAttribute('aria-expanded',String(show));markUnsaved();if(focusStage&&setupStages.length)focusCard(focusStage);return}
+ }
+ if(id!==openId&&setupDirty&&!confirm('You have unsaved changes in the open sequence. Discard them?'))return;
+ if(id!==openId)closeCampaign();
+ const camp=list.querySelector('.camp[data-id="'+CSS.escape(id)+'"]');if(!camp)return;
+ openId=id;camp.classList.add('open');camp.firstChild.setAttribute('aria-expanded','true');
+ let body=camp.querySelector('.camp-body');if(!body){body=document.createElement('div');body.className='camp-body';camp.append(body)}
+ body.innerHTML='<p id="setup-status" role="status">Loading stages and emails from Mixmax…</p>';
+ try{const d=await getJSON('/api/campaign?id='+encodeURIComponent(id));if(openId!==id)return;setupStages=d.stages;
+  const saved=Object.fromEntries((current?.rules||[]).filter(x=>x.campaign===id).map(x=>[x.stage,x]));
+  body.innerHTML='<div class="toolbar"><button type="button" id="draft-ai">✨ Draft all texts with AI</button><span class="spacer"></span><label class="inline">Set every delay to <input id="all-delay" type="number" min="0" max="43200" step="0.1" value="60"> minutes</label><button type="button" class="secondary" id="apply-delay">Apply</button></div>'+
+   '<p id="setup-status" role="status"></p><div class="timeline" id="stage-cards">'+
+   setupStages.map(st=>{const rule=saved[st.id];return '<div class="stage" data-stage="'+esc(st.id)+'" data-number="'+st.number+'"><div class="num">'+st.number+'</div>'+
+    '<div class="email"><div class="kind">✉️ Email · Stage '+st.number+'</div><strong>'+esc(st.subject||'(no subject)')+'</strong>'+(st.preview?'<details><summary>Preview email</summary><p>'+esc(st.preview)+(st.preview.length>=400?'…':'')+'</p></details>':'')+'</div>'+
+    '<div class="sms"><div class="sms-line"><label><input type="checkbox" class="sms-on" '+(rule?.enabled?'checked':'')+'> 💬 Send a text</label>'+
+    '<input type="number" class="delay" min="0" max="43200" step="0.1" value="'+esc(rule?rule.delay:60)+'" aria-label="Delay in minutes"> minutes after this email <span class="human"></span>'+
+    '<span class="pill'+(rule?'':' warn')+'">'+(rule?(rule.enabled?'Saved':'Saved · off'):'Not set up')+'</span></div>'+
+    '<label class="modepick">When it’s due: <select class="mode"><option value="auto"'+(rule?.mode==='review'?'':' selected')+'>Send automatically</option><option value="review"'+(rule?.mode==='review'?' selected':'')+'>Hold for review first</option></select></label>'+
+    '<textarea aria-label="Text for stage '+st.number+'" placeholder="Click “Draft all texts with AI”, or type the text here.">'+esc(rule?rule.template:'')+'</textarea><div class="count"></div></div></div>'}).join('')+'</div>'+
+   '<div class="setup-actions"><button type="button" id="save-all">Save changes</button><button type="button" class="secondary" id="discard">Discard changes</button><span id="save-status" role="status"></span></div>';
+  body.querySelectorAll('.stage').forEach(syncCard);
+  const missing=setupStages.filter(st=>!saved[st.id]).length;
+  $('setup-status').textContent=missing?missing+' of '+setupStages.length+' stages have no text yet. Use “Draft all texts with AI” to fill them in, then review and save.':'';
+  wireEditor(body);if(focusStage)focusCard(focusStage);
+ }catch(e){body.innerHTML='<p class="flag">'+esc(e.message)+'</p>'}
+}
+function focusCard(stage){const c=list.querySelector('.stage[data-stage="'+CSS.escape(stage)+'"]');if(c){c.scrollIntoView({behavior:'smooth',block:'center'});c.querySelector('textarea').focus()}}
+function wireEditor(body){
+ const cards=body.querySelector('#stage-cards'),status=body.querySelector('#setup-status');
+ cards.addEventListener('input',e=>{const card=e.target.closest('.stage');if(card)markChanged(card)});cards.addEventListener('change',e=>{const card=e.target.closest('.stage');if(card&&e.target.matches('select'))markChanged(card)});
+ body.querySelector('#apply-delay').onclick=()=>{const v=body.querySelector('#all-delay').value;cards.querySelectorAll('.stage').forEach(c=>{c.querySelector('.delay').value=v;markChanged(c)})};
+ body.querySelector('#discard').onclick=()=>{if(!setupDirty||confirm('Discard your unsaved changes?')){const id=openId;setupDirty=false;closeCampaign();openCampaign(id)}};
+ body.querySelector('#draft-ai').onclick=async e=>{
+  const btn=e.currentTarget,filled=[...cards.querySelectorAll('textarea')].some(t=>t.value.trim());
+  if(filled&&!confirm('Replace the current texts with new AI drafts?'))return;
+  btn.disabled=true;btn.textContent='Drafting… (up to a minute)';status.textContent='Reading each stage’s email and drafting texts…';
+  try{const r=await fetch('/api/draft',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({campaign:openId})}),d=await r.json();if(!r.ok)throw Error(d.error);
+   cards.querySelectorAll('.stage').forEach(c=>{const t=d.drafts[c.dataset.stage];if(t){c.querySelector('textarea').value=t;c.querySelector('.sms-on').checked=true;markChanged(c)}});
+   status.classList.toggle('flag',!!d.note);status.textContent=d.note?'⚠ AI was not used. '+d.note+' Review each text, then click “Save changes”. Nothing is saved yet.':'✓ AI drafts are ready. Review each text, then click “Save changes”. Nothing is saved yet.';
+  }catch(err){status.textContent=err.message}finally{btn.disabled=false;btn.textContent='✨ Draft all texts with AI'}
+ };
+ body.querySelector('#save-all').onclick=async e=>{
+  const btn=e.currentTarget,all=[...cards.querySelectorAll('.stage')],out=body.querySelector('#save-status');
+  const empty=all.find(c=>c.querySelector('.sms-on').checked&&!c.querySelector('textarea').value.trim());
+  if(empty){out.textContent='Stage '+empty.dataset.number+' is turned on but has no text. Add one, or untick “Send a text”.';empty.querySelector('textarea').focus();return}
+  const rules=all.filter(c=>c.querySelector('textarea').value.trim()).map(c=>({stage:c.dataset.stage,stage_number:Number(c.dataset.number),enabled:c.querySelector('.sms-on').checked,mode:c.querySelector('.mode').value,delay:c.querySelector('.delay').value,template:c.querySelector('textarea').value.trim()}));
+  if(!rules.length){out.textContent='Nothing to save yet.';return}
+  btn.disabled=true;out.textContent='Saving…';
+  if(await post('/api/rules',{campaign:openId,rules})){setupDirty=false;markUnsaved();all.forEach(c=>{if(c.querySelector('textarea').value.trim()){const p=c.querySelector('.pill'),on=c.querySelector('.sms-on').checked;p.textContent=on?'Saved':'Saved · off';p.className='pill'}});out.textContent='✓ Saved.'}
+  else out.textContent='Not saved. See the message at the top of the page.';
+  btn.disabled=false;
+ };
+}
+list.addEventListener('click',e=>{const head=e.target.closest('.camp-head');if(head)openCampaign(head.parentElement.dataset.id)});
+window.addEventListener('beforeunload',e=>{if(setupDirty){e.preventDefault();e.returnValue=''}});
+function editRule(index){const rule=current.rules[index],campaign=campaigns.find(c=>c.id===rule.campaign);if(campaign&&campaign.stages.some(s=>s.id===rule.stage))openCampaign(rule.campaign,rule.stage);else{editSingleRule(index);$('rule-editor').scrollIntoView({behavior:'smooth'})}}
+
+route();refresh();loadCampaigns();setInterval(refresh,5000);
+</script></html>
