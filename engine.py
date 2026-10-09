@@ -77,6 +77,7 @@ class Engine:
         CREATE TABLE IF NOT EXISTS phone_stops (phone TEXT PRIMARY KEY, reason TEXT);
         CREATE TABLE IF NOT EXISTS roster (campaign TEXT, recipient_id TEXT, email TEXT, name TEXT, state TEXT, reason TEXT, last_stage INTEGER, next_stage INTEGER, next_stage_id TEXT, next_at REAL, replied INTEGER DEFAULT 0, created REAL, PRIMARY KEY(campaign, recipient_id));
         CREATE INDEX IF NOT EXISTS roster_email ON roster(email);
+        CREATE TABLE IF NOT EXISTS tracked (campaign TEXT PRIMARY KEY, since REAL);
         ''')
         if 'stage_number' not in {r[1] for r in self.db.execute('PRAGMA table_info(rules)')}:
             self.db.execute('ALTER TABLE rules ADD COLUMN stage_number INTEGER')
@@ -84,6 +85,10 @@ class Engine:
         self.db.execute('CREATE INDEX IF NOT EXISTS jobs_status ON jobs(status)')
         if 'mode' not in {r[1] for r in self.db.execute('PRAGMA table_info(rules)')}:
             self.db.execute("ALTER TABLE rules ADD COLUMN mode TEXT DEFAULT 'auto'")
+        if 'enabled_at' not in {r[1] for r in self.db.execute('PRAGMA table_info(rules)')}:
+            # Existing rules count as turned on now, so older emails can never trigger them.
+            self.db.execute('ALTER TABLE rules ADD COLUMN enabled_at REAL')
+            self.db.execute('UPDATE rules SET enabled_at=? WHERE enabled', (time.time(),))
         if 'review' not in {r[1] for r in self.db.execute('PRAGMA table_info(jobs)')}:
             self.db.execute('ALTER TABLE jobs ADD COLUMN review INTEGER DEFAULT 0')
         lead_columns = {r[1] for r in self.db.execute('PRAGMA table_info(leads)')}
@@ -97,6 +102,11 @@ class Engine:
         if self.demo:
             for stage in ('1', '3'):
                 self.db.execute('INSERT OR IGNORE INTO rules(campaign,stage,enabled,delay,template) VALUES (?,?,?,?,?)', ('demo', stage, 1, 1, 'Hi {name}, Lukas from EA Tax Resolutions here. Please check my recent email and let me know if you have questions.'))
+        if not self.meta('tracked_init'):
+            # First run with tracking: sequences that already have texts on are tracked; nothing else is.
+            self.db.execute('INSERT OR IGNORE INTO tracked SELECT DISTINCT campaign, ? FROM rules WHERE enabled', (time.time(),))
+            self.db.execute("DELETE FROM roster WHERE campaign NOT IN (SELECT campaign FROM tracked)")
+            self.db.execute("INSERT OR REPLACE INTO meta VALUES ('tracked_init', '1')")
         self.db.commit()
         self.mix = mix or Mixmax(config)
         self.rc = rc or RingCentral(config)
@@ -173,11 +183,14 @@ class Engine:
             template.format(name='Test', email='test@example.com')
         except (KeyError, IndexError, ValueError):
             raise ValueError('SMS text can only use the placeholders {name} and {email}, each in curly braces') from None
-        existing = self.db.execute('SELECT mode FROM rules WHERE campaign=? AND stage=?', (campaign, stage)).fetchone()
+        existing = self.db.execute('SELECT mode, enabled, enabled_at FROM rules WHERE campaign=? AND stage=?', (campaign, stage)).fetchone()
         mode = data.get('mode') or (existing['mode'] if existing else '') or 'auto'
         if mode not in ('auto', 'review'):
             raise ValueError('Send mode must be automatic or review')
-        self.db.execute('INSERT OR REPLACE INTO rules(campaign,stage,enabled,delay,template,stage_number,mode) VALUES (?,?,?,?,?,?,?)', (campaign, stage, int(bool(data.get('enabled'))), delay, template, data.get('_stage_number'), mode))
+        enabled = int(bool(data.get('enabled')))
+        # Only emails sent after a text is turned on can trigger it; editing wording or delay keeps the original time.
+        enabled_at = existing['enabled_at'] if enabled and existing and existing['enabled'] and existing['enabled_at'] else time.time() if enabled else None
+        self.db.execute('INSERT OR REPLACE INTO rules(campaign,stage,enabled,delay,template,stage_number,mode,enabled_at) VALUES (?,?,?,?,?,?,?,?)', (campaign, stage, enabled, delay, template, data.get('_stage_number'), mode, enabled_at))
         if not data.get('enabled'):
             self.db.execute("UPDATE jobs SET status='cancelled',reason='Stage disabled' WHERE campaign=? AND stage=? AND status IN ('pending','needs_number','draft')", (campaign, stage))
         if commit:
@@ -201,6 +214,24 @@ class Engine:
             raise APIError('Mixmax campaign: stage is missing its ID')
         return stages
 
+    def tracked(self):
+        return {r[0] for r in self.db.execute('SELECT campaign FROM tracked')}
+
+    def set_tracked(self, campaign_id, on):
+        """Start or stop following a Mixmax sequence. Stopping cancels its waiting texts; its saved texts are kept."""
+        if on and not any(c['id'] == campaign_id for c in self.campaigns()):
+            raise ValueError('This sequence is no longer in Mixmax. Refresh sequences and try again.')
+        with self.lock, self.db:
+            if on:
+                self.db.execute('INSERT OR IGNORE INTO tracked VALUES (?,?)', (campaign_id, time.time()))
+                self.log('Started tracking a sequence')
+                return {'cancelled': 0}
+            cancelled = self.db.execute("UPDATE jobs SET status='cancelled',reason='Sequence no longer tracked' WHERE campaign=? AND status IN ('pending','needs_number','draft')", (campaign_id,)).rowcount
+            self.db.execute('DELETE FROM tracked WHERE campaign=?', (campaign_id,))
+            self.db.execute('DELETE FROM roster WHERE campaign=?', (campaign_id,))
+            self.log(f'Stopped tracking a sequence; {cancelled} waiting text(s) cancelled')
+            return {'cancelled': cancelled}
+
     def save_campaign_rules(self, data):
         """Save one rule per stage of a campaign in a single transaction."""
         campaign = next((x for x in self.campaigns() if x['id'] == data.get('campaign')), None)
@@ -218,6 +249,8 @@ class Engine:
         with self.lock, self.db:
             for rule in rules:
                 self.save_rule(dict(rule, campaign=campaign['id'], _stage_number=numbers[rule['stage']]), commit=False)
+            if any(r.get('enabled') for r in rules):
+                self.db.execute('INSERT OR IGNORE INTO tracked VALUES (?,?)', (campaign['id'], time.time()))
 
     def ingest(self, message, recipient, contacts):
         destination = recipient.get('to')
@@ -238,7 +271,8 @@ class Engine:
         self.db.execute('INSERT OR IGNORE INTO leads(email,name,phone) VALUES (?,?,?)', (email, name, ''))
         number = self.update_lead_numbers(email, options)
         rule = self.db.execute('SELECT * FROM rules WHERE campaign=? AND stage=?', (seq['id'], seq['stageId'])).fetchone()
-        reason = error or ('Stage not enabled' if not rule or not rule['enabled'] else '')
+        reason = error or ('Stage not enabled' if not rule or not rule['enabled'] else
+                           'Email went out before this stage’s text was turned on' if rule['enabled_at'] and stamp(message['sent']) < rule['enabled_at'] else '')
         lead = self.db.execute('SELECT * FROM leads WHERE email=?', (email,)).fetchone()
         reason = next((f for f in FLAGS if lead[f]), reason)
         stop = self.db.execute('SELECT reason FROM phone_stops WHERE phone=?', (number,)).fetchone()
@@ -387,23 +421,23 @@ class Engine:
                 self.health = 'Demo ready'; self.cycle_ok = True
                 return
             self.cycle_ok = False
-            campaigns = {r['campaign'] for r in self.rules()}
+            tracked = self.tracked()
+            campaigns = {r['campaign'] for r in self.rules()} & tracked
         contacts = self.rc.contacts()
-        recipients = {campaign: self.mix.recipients(campaign) for campaign in campaigns}
-        messages = self.mix.messages()
+        recipients = {campaign: self.mix.recipients(campaign) for campaign in tracked}
         with self.lock:
-            for message in messages:
-                seq = message.get('sequence') or {}
-                if seq.get('id') not in recipients:
-                    continue
-                matches = [r for r in recipients[seq['id']] if str(r.get('_id') or r.get('id')) == str(seq.get('recipientId'))]
-                if len(matches) == 1:
-                    self.ingest(message, matches[0], contacts)
-                elif message.get('sent'):
-                    self.log('Message skipped: recipient ID could not be matched uniquely')
+            # Each recipient lists its sent stage emails (same message IDs as Mixmax's message history),
+            # so the work grows with the sequences that have texts, not with all-time email volume.
+            for campaign, rows in recipients.items():
+                if campaign not in campaigns:
+                    continue  # Tracked but no texts set up yet: shown under Recipients, nothing to schedule.
+                for recipient in rows:
+                    for stage in recipient.get('stages') or []:
+                        if isinstance(stage, dict) and stage.get('state') == 'sent' and stage.get('sentAt') and stage.get('messageId') and stage.get('stageId'):
+                            self.ingest({'_id': stage['messageId'], 'sent': stage['sentAt'], 'sequence': {
+                                'id': campaign, 'stageId': stage['stageId'], 'recipientId': str(recipient.get('_id') or recipient.get('id') or '')}}, recipient, contacts)
         for campaign, rows in recipients.items():
             self.sync_roster(campaign, rows)
-        self.sync_other_rosters(campaigns)
         self.sync_replies()
         with self.lock:
             self.last_poll = time.time()
@@ -437,20 +471,6 @@ class Engine:
                         self.db.execute('INSERT OR IGNORE INTO leads(email,name,phone) VALUES (?,?,?)', (email, name, ''))
                         self.flag(email, 'replied')
                         self.log(f'Email reply detected in Mixmax; texts stopped for {email}')
-
-    def sync_other_rosters(self, done):
-        """Sequences without texts only feed the Recipients view, so refresh them every 15 minutes at most."""
-        if time.time() - float(self.meta('roster_full_at') or 0) < 900:
-            return
-        try:
-            for campaign in self.campaigns():
-                if campaign['id'] not in done:
-                    self.sync_roster(campaign['id'], self.mix.recipients(campaign['id']))
-            with self.lock:
-                self.setmeta('roster_full_at', str(time.time()))
-        except APIError as e:
-            with self.lock:
-                self.log(f'Recipient list refresh skipped: {e}')
 
     def demo_roster(self, email, stage):
         """Demo stand-in for Mixmax's recipient list: the next stage is two days after this one."""
@@ -538,7 +558,9 @@ class Engine:
         lead = self.db.execute('SELECT * FROM leads WHERE email=?', (job['email'],)).fetchone()
         rule = self.db.execute('SELECT * FROM rules WHERE campaign=? AND stage=?', (job['campaign'], job['stage'])).fetchone()
         stop = self.db.execute('SELECT reason FROM phone_stops WHERE phone=?', (job['phone'],)).fetchone()
-        return next((f for f in FLAGS if lead[f]), '') or (stop[0] if stop else '') or ('Stage disabled' if not rule or not rule['enabled'] else '')
+        tracked = self.db.execute('SELECT 1 FROM tracked WHERE campaign=?', (job['campaign'],)).fetchone()
+        return next((f for f in FLAGS if lead[f]), '') or (stop[0] if stop else '') or ('Stage disabled' if not rule or not rule['enabled'] else '') \
+            or ('' if tracked else 'Sequence no longer tracked')
 
     def finish_job(self, ident, status, reason):
         self.db.execute('UPDATE jobs SET status=?,reason=? WHERE id=?', (status, reason, ident))
@@ -565,8 +587,9 @@ class Engine:
     def recipients(self, query='', status='', page=1, campaign='', stage='', per_page=50):
         """One page of sequence memberships (person x sequence) for the Recipients view, with counts for the filters."""
         with self.lock:
-            members = {(r['campaign'], r['email']): dict(r) for r in self.db.execute('SELECT * FROM roster')}
-            for r in self.db.execute('SELECT DISTINCT campaign, email FROM jobs'):
+            tracked = self.tracked()
+            members = {(r['campaign'], r['email']): dict(r) for r in self.db.execute('SELECT * FROM roster') if r['campaign'] in tracked}
+            for r in self.db.execute('SELECT DISTINCT campaign, email FROM jobs WHERE campaign IN (SELECT campaign FROM tracked)'):
                 members.setdefault((r['campaign'], r['email']), {'campaign': r['campaign'], 'email': r['email'], 'name': '', 'state': '', 'reason': '',
                                                                 'last_stage': None, 'next_stage': None, 'next_stage_id': '', 'next_at': None, 'replied': 0, 'created': 0})
             leads = {r['email']: dict(r) for r in self.db.execute('SELECT * FROM leads')}
@@ -635,7 +658,7 @@ class Engine:
 
     def jobs_page(self, query='', status='', page=1, campaign='', per_page=50):
         """Texts grouped one row per person per sequence; a group is listed when any of its texts matches the filters."""
-        where, args = [], []
+        where, args = ['campaign IN (SELECT campaign FROM tracked)'], []
         if status in self.JOB_FILTERS:
             where.append('status IN (%s)' % ','.join('?' * len(self.JOB_FILTERS[status])))
             args += self.JOB_FILTERS[status]
@@ -649,7 +672,7 @@ class Engine:
         sql = ' WHERE ' + ' AND '.join(where) if where else ''
         page = max(1, int(page) if str(page).isdigit() else 1)
         with self.lock:
-            by_status = dict(self.db.execute('SELECT status, COUNT(*) FROM jobs' + (' WHERE campaign=?' if campaign else '') + ' GROUP BY status', [campaign] if campaign else []).fetchall())
+            by_status = dict(self.db.execute('SELECT status, COUNT(*) FROM jobs WHERE campaign IN (SELECT campaign FROM tracked)' + (' AND campaign=?' if campaign else '') + ' GROUP BY status', [campaign] if campaign else []).fetchall())
             total, texts = self.db.execute('SELECT COUNT(*), COALESCE(SUM(n), 0) FROM (SELECT COUNT(*) n FROM jobs' + sql + ' GROUP BY email, campaign)', args).fetchone()
             groups = self.db.execute('''SELECT email, campaign, MAX(created) last,
                     MAX(CASE WHEN status IN ('draft','needs_number','held','unknown') THEN 1 ELSE 0 END) attention
@@ -668,9 +691,10 @@ class Engine:
     def state(self):
         """Small summary polled every few seconds; lists are fetched page by page."""
         with self.lock:
-            by_status = dict(self.db.execute('SELECT status, COUNT(*) FROM jobs GROUP BY status').fetchall())
-            members = self.db.execute('SELECT COUNT(*) FROM (SELECT campaign, email FROM roster UNION SELECT campaign, email FROM jobs)').fetchone()[0]
+            scope = 'WHERE campaign IN (SELECT campaign FROM tracked)'
+            by_status = dict(self.db.execute('SELECT status, COUNT(*) FROM jobs ' + scope + ' GROUP BY status').fetchall())
+            members = self.db.execute('SELECT COUNT(*) FROM (SELECT campaign, email FROM roster ' + scope + ' UNION SELECT campaign, email FROM jobs ' + scope + ')').fetchone()[0]
             return {'demo': self.demo, 'test': self.test, 'health': self.health, 'last_poll': self.last_poll, 'rules': self.rules(),
-                    'job_counts': by_status, 'lead_count': members,
+                    'job_counts': by_status, 'lead_count': members, 'tracked': sorted(self.tracked()),
                     'phone_stops': [dict(r) for r in self.db.execute('SELECT * FROM phone_stops ORDER BY phone')],
                     'logs': [dict(r) for r in self.db.execute('SELECT * FROM logs ORDER BY id DESC LIMIT 50')]}

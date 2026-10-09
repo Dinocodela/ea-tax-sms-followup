@@ -123,11 +123,6 @@ class Mixmax:
             params['next'] = page['next']
         raise APIError('Mixmax scan exceeds 50 pages; no dispatch this cycle')
 
-    def messages(self):
-        # Revisit drafts/scheduled objects as sent can change after object creation.
-        # Full bounded scan is intentional for this small PoC.
-        return self.collection('messages')
-
     def recipients(self, sequence):
         result = []
         for offset in range(0, 10000, 50):

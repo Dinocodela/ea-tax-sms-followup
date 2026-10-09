@@ -54,7 +54,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:11px 10p
 /* Sequences */
 .camp{border:1px solid var(--line);border-radius:12px;margin-top:12px;background:#fff;overflow:hidden}.camp.open{border-color:#9db7da;box-shadow:0 2px 10px rgba(35,75,125,.08)}
 .camp-head{width:100%;display:flex;align-items:center;gap:12px;background:#fff;color:var(--ink);padding:15px 18px;border-radius:0;text-align:left}.camp-head:hover:not(:disabled){background:#f5f8fc}
-.camp-head .chev{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:7px;background:#eef1f5;color:var(--brand);font-size:12px;transition:transform .15s,background .15s;flex:none}.camp-head:hover .chev{background:#dbe4ef}.camp-unsaved{font-size:12px;color:#1d4f91;background:#e3f0ff;border-radius:20px;padding:2px 9px;font-weight:600}.camp.open .chev{transform:rotate(90deg)}.camp-name{font-weight:700;font-size:15px}.camp-sum{margin-left:auto;font-size:13px;color:var(--muted)}
+.camp-head .chev{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:7px;background:#eef1f5;color:var(--brand);font-size:12px;transition:transform .15s,background .15s;flex:none}.camp-head:hover .chev{background:#dbe4ef}.others{margin-top:16px;border:1px dashed #c6d0dc;border-radius:12px;padding:12px 16px;background:#fafbfd}.others summary{cursor:pointer;font-weight:600;color:var(--ink)}.others p{margin:8px 0}.other-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line)}.tracking{font-size:12px;color:#1f6b41;background:#dcf2e5;border-radius:20px;padding:2px 9px;font-weight:600}.camp-unsaved{font-size:12px;color:#1d4f91;background:#e3f0ff;border-radius:20px;padding:2px 9px;font-weight:600}.camp.open .chev{transform:rotate(90deg)}.camp-name{font-weight:700;font-size:15px}.camp-sum{margin-left:auto;font-size:13px;color:var(--muted)}
 .camp-body{border-top:1px solid var(--line);padding:18px;background:#fbfcfe}.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}.toolbar .inline{flex-direction:row;align-items:center;gap:6px;font-size:14px}.toolbar .inline input{width:80px;padding:6px}.toolbar .spacer{flex:1}
 #draft-ai{background:#5b3fb5}#draft-ai:hover:not(:disabled){background:#48309a}
 .timeline{margin-top:8px}.stage{position:relative;padding-left:46px;padding-bottom:18px}.stage:before{content:"";position:absolute;left:15px;top:34px;bottom:0;width:2px;background:var(--line)}.stage:last-child:before{display:none}
@@ -99,7 +99,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:11px 10p
  </section>
 
  <section data-page="sequences" hidden>
-  <div class="card"><p style="margin-top:0">Your Mixmax sequences, with their stages in order. Each email can be followed by a text, sent a set time after that email goes out. Turning a text off cancels any texts still waiting to go out for that stage. Choose <strong>Hold for review first</strong> to check and personalize each person’s text before it goes out; texts not reviewed within 24 hours of their due time expire.</p>
+  <div class="card"><p style="margin-top:0">The Mixmax sequences this app follows, with their stages in order. Only tracked sequences are downloaded, checked for replies and shown under Recipients and Texts. Each email can be followed by a text, sent a set time after that email goes out. Turning a text off cancels any texts still waiting to go out for that stage. Choose <strong>Hold for review first</strong> to check and personalize each person’s text before it goes out; texts not reviewed within 24 hours of their due time expire.</p>
    <div id="campaign-list"><div class="empty">Loading sequences…</div></div>
    <p style="margin-top:14px"><button type="button" class="secondary" id="reload-campaigns">Refresh sequences</button> <span id="campaign-status" role="status">Loading sequences…</span></p>
    <div id="orphans" hidden><h3>Texts that need review</h3><p>These saved texts point to a sequence or stage that no longer exists in Mixmax, so they will not send. Move each one to the right stage, or ignore it.</p><div id="rules"></div>
@@ -164,7 +164,7 @@ window.addEventListener('hashchange',route);
 async function refresh(force){
  let r=await fetch('/api/state');if(!r.ok)return;const s=await r.json();current=s;
  $('mode').textContent=(s.demo?'DEMO DATA':'LIVE DATA')+' · '+(s.test?'TEST MODE':'REAL SMS');$('mode').classList.toggle('live',!s.test);$('demo').hidden=!s.demo;
- renderHealth(s);renderRules();
+ renderHealth(s);renderRules();if(catalogReady&&(s.tracked||[]).join(',')!==trackedKey)renderCampaigns();
  const jc=s.job_counts||{},n=k=>jc[k]||0,waiting=n('needs_number'),drafts=n('draft'),review=n('held')+n('unknown');
  $('nav-recipients').textContent=s.lead_count||'';$('nav-optouts').textContent=s.phone_stops.length||'';
  const attention=waiting+drafts+review;$('nav-texts').className=attention?'alert':'count';$('nav-texts').textContent=attention||'';
@@ -185,7 +185,7 @@ let seqFilter='';
 const lists={
  recipients:{status:'',q:'',page:1,stage:'',rows:[],sel:new Map(),url:'/api/recipients',filters:[['','All recipients','all'],['needs_number','Needs a number','needs_number'],['to_review','To review','to_review'],['scheduled','Text scheduled','scheduled'],['texted','Texted','texted'],['no_text','No text yet','no_text'],['stopped','Stopped','stopped']]},
  texts:{status:'',q:'',page:1,rows:[],sel:new Map(),open:new Set(),url:'/api/jobs',filters:[['','All texts','all'],['draft','To review','draft'],['needs_number','Needs number','needs_number'],['pending','Scheduled','pending'],['sent','Sent / simulated','sent'],['review','Needs review','review'],['skipped','Skipped','skipped'],['cancelled','Cancelled / expired','cancelled']]}};
-function fillSeqPicks(){document.querySelectorAll('.seq-pick').forEach(sel=>{sel.innerHTML='<option value="">All sequences</option>'+campaigns.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>').join('');sel.value=seqFilter})}
+function fillSeqPicks(){document.querySelectorAll('.seq-pick').forEach(sel=>{if(seqFilter&&current&&!isTracked(seqFilter))seqFilter='';sel.innerHTML='<option value="">All tracked sequences</option>'+campaigns.filter(c=>isTracked(c.id)).map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>').join('');sel.value=seqFilter})}
 document.addEventListener('change',e=>{if(e.target.classList.contains('seq-pick')){seqFilter=e.target.value;fillSeqPicks();for(const n of ['recipients','texts']){lists[n].page=1;lists[n].stage='';lists[n].sel.clear()}loadList(view==='texts'?'texts':'recipients')}});
 function mixmaxLabel(x){
  if(!x.state)return '<span class="muted">—</span>';
@@ -355,6 +355,7 @@ document.addEventListener('click',e=>{
  if(t.dataset.stageFilter!==undefined){lists.recipients.stage=t.dataset.stageFilter;lists.recipients.page=1;loadList('recipients');return}
  if(t.dataset.bulk){runBulk(t.dataset.bulk,t.dataset.bulkAction);return}
  if(t.dataset.expand){const o=lists.texts.open;o.has(t.dataset.expand)?o.delete(t.dataset.expand):o.add(t.dataset.expand);loadList('texts');return}
+ if(t.dataset.track){const id=t.dataset.track;t.disabled=true;post('/api/track',{campaign:id,on:true}).then(ok=>{if(ok){renderCampaigns();openCampaign(id);$('campaign-status').textContent='Now tracking '+(campaigns.find(c=>c.id===id)?.name||'the sequence')+'. Set up its texts below.'}else t.disabled=false});return}
  if(t.dataset.bulkClear){lists[t.dataset.bulkClear].sel.clear();loadList(t.dataset.bulkClear);return}
  if(t.dataset.open){openDrawer(t.dataset.open,'',t.dataset.focusJob);return}
  if(t.dataset.list){lists[t.dataset.list].status=t.dataset.filter;lists[t.dataset.list].page=1;lists[t.dataset.list].sel.clear();loadList(t.dataset.list)}
@@ -408,11 +409,20 @@ ruleForm.onsubmit=async e=>{e.preventDefault();if(!catalogReady)return;let d=Obj
 const human=m=>{m=Number(m);if(!(m>=0))return'';if(m===0)return'sent right away';const u=m<60?[m,'minute']:m<1440?[+(m/60).toFixed(1),'hour']:[+(m/1440).toFixed(1),'day'];return'= '+u[0]+' '+u[1]+(u[0]===1?'':'s')};
 function summary(c){const rules=(current?.rules||[]).filter(r=>r.campaign===c.id&&c.stages.some(s=>s.id===r.stage)),on=rules.filter(r=>r.enabled).length;return c.stages.length+' stage'+(c.stages.length===1?'':'s')+' · '+(on?on+' text'+(on===1?'':'s')+' on':'no texts set up')}
 function renderSummaries(){for(const c of campaigns){const el=list.querySelector('.camp[data-id="'+CSS.escape(c.id)+'"] .camp-sum');if(el)el.textContent=summary(c)}}
+let trackedKey='';
+const isTracked=id=>(current?.tracked||[]).includes(id);
 function renderCampaigns(){
- const keep=openId&&list.querySelector('.camp-body'),wasOpen=!!list.querySelector('.camp.open');
- list.innerHTML=campaigns.length?campaigns.map(c=>'<div class="camp" data-id="'+esc(c.id)+'"><button type="button" class="camp-head" aria-expanded="false"><span class="chev">▶</span><span class="camp-name">'+esc(c.name)+'</span><span class="camp-sum">'+esc(summary(c))+'</span></button></div>').join(''):'<div class="empty">No sequences found in this Mixmax account.</div>';
+ const keep=openId&&isTracked(openId)&&list.querySelector('.camp-body'),wasOpen=!!list.querySelector('.camp.open'),othersOpen=list.querySelector('details.others')?.open;
+ trackedKey=(current?.tracked||[]).join(',');
+ const mine=campaigns.filter(c=>isTracked(c.id)),others=campaigns.filter(c=>!isTracked(c.id));
+ let html=mine.map(c=>'<div class="camp" data-id="'+esc(c.id)+'"><button type="button" class="camp-head" aria-expanded="false"><span class="chev">▶</span><span class="camp-name">'+esc(c.name)+'</span><span class="tracking">Tracking</span><span class="camp-sum">'+esc(summary(c))+'</span></button></div>').join('')||
+  '<div class="empty">No sequences are tracked yet. Choose which Mixmax sequences this app should follow from the list below.</div>';
+ if(others.length)html+='<details class="others"'+(othersOpen||!mine.length?' open':'')+'><summary>Other Mixmax sequences ('+others.length+', not tracked)</summary><p>The app ignores these: it does not download their recipients, check their replies or send texts for them.</p>'+
+  others.map(c=>'<div class="other-row"><span><strong>'+esc(c.name)+'</strong> <small>· '+c.stages.length+' stage'+(c.stages.length===1?'':'s')+'</small></span><button type="button" class="small secondary" data-track="'+esc(c.id)+'">Track</button></div>').join('')+'</details>';
+ list.innerHTML=campaigns.length?html:'<div class="empty">No sequences found in this Mixmax account.</div>';
  const camp=openId&&list.querySelector('.camp[data-id="'+CSS.escape(openId)+'"]');
- if(camp&&keep){camp.classList.toggle('open',wasOpen);camp.firstChild.setAttribute('aria-expanded',String(wasOpen));camp.append(keep);markUnsaved()}else openId='';
+ if(camp&&keep){camp.classList.toggle('open',wasOpen);camp.firstChild.setAttribute('aria-expanded',String(wasOpen));camp.append(keep);markUnsaved()}else{openId='';setupStages=[];setupDirty=false}
+ fillSeqPicks();
 }
 function countChars(card){const t=card.querySelector('textarea'),c=card.querySelector('.count');c.textContent=t.value.length+' / 320 characters';c.classList.toggle('over',t.value.length>320)}
 function syncCard(card){const on=card.querySelector('.sms-on').checked;card.querySelector('.sms').classList.toggle('off',!on);card.querySelector('.human').textContent=on?'('+human(card.querySelector('.delay').value)+')':'';countChars(card)}
@@ -433,7 +443,7 @@ async function openCampaign(id,focusStage){
  body.innerHTML='<p id="setup-status" role="status">Loading stages and emails from Mixmax…</p>';
  try{const d=await getJSON('/api/campaign?id='+encodeURIComponent(id));if(openId!==id)return;setupStages=d.stages;
   const saved=Object.fromEntries((current?.rules||[]).filter(x=>x.campaign===id).map(x=>[x.stage,x]));
-  body.innerHTML='<div class="toolbar"><button type="button" id="draft-ai">✨ Draft all texts with AI</button><span class="spacer"></span><label class="inline">Set every delay to <input id="all-delay" type="number" min="0" max="43200" step="0.1" value="60"> minutes</label><button type="button" class="secondary" id="apply-delay">Apply</button></div>'+
+  body.innerHTML='<div class="toolbar"><button type="button" id="draft-ai">✨ Draft all texts with AI</button><span class="spacer"></span><label class="inline">Set every delay to <input id="all-delay" type="number" min="0" max="43200" step="0.1" value="60"> minutes</label><button type="button" class="secondary" id="apply-delay">Apply</button><button type="button" class="secondary" id="untrack">Stop tracking</button></div>'+
    '<p id="setup-status" role="status"></p><div class="timeline" id="stage-cards">'+
    setupStages.map(st=>{const rule=saved[st.id];return '<div class="stage" data-stage="'+esc(st.id)+'" data-number="'+st.number+'"><div class="num">'+st.number+'</div>'+
     '<div class="email"><div class="kind">✉️ Email · Stage '+st.number+'</div><strong>'+esc(st.subject||'(no subject)')+'</strong>'+(st.preview?'<details><summary>Preview email</summary><p>'+esc(st.preview)+(st.preview.length>=400?'…':'')+'</p></details>':'')+'</div>'+
@@ -454,6 +464,13 @@ function wireEditor(body){
  const cards=body.querySelector('#stage-cards'),status=body.querySelector('#setup-status');
  cards.addEventListener('input',e=>{const card=e.target.closest('.stage');if(card)markChanged(card)});cards.addEventListener('change',e=>{const card=e.target.closest('.stage');if(card&&e.target.matches('select'))markChanged(card)});
  body.querySelector('#apply-delay').onclick=()=>{const v=body.querySelector('#all-delay').value;cards.querySelectorAll('.stage').forEach(c=>{c.querySelector('.delay').value=v;markChanged(c)})};
+ body.querySelector('#untrack').onclick=async()=>{
+  const id=openId,name=campaigns.find(c=>c.id===id)?.name||'this sequence';
+  if(!confirm('Stop tracking '+name+'?\n\nThe app will stop following it: no new texts, and any texts still waiting to go out for it are cancelled. Its saved texts are kept, so you can track it again later.'+(setupDirty?'\n\nYour unsaved changes will be lost.':'')))return;
+  try{const r=await fetch('/api/track',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({campaign:id,on:false})}),d=await r.json();if(!r.ok)throw Error(d.error);
+   setupDirty=false;closeCampaign();await refresh(true);renderCampaigns();$('campaign-status').textContent='Stopped tracking '+name+'.'+(d.cancelled?' '+d.cancelled+' waiting text'+(d.cancelled===1?' was':'s were')+' cancelled.':'');
+  }catch(e){$('notice').textContent=e.message}
+ };
  body.querySelector('#discard').onclick=()=>{if(!setupDirty||confirm('Discard your unsaved changes?')){const id=openId;setupDirty=false;closeCampaign();openCampaign(id)}};
  body.querySelector('#draft-ai').onclick=async e=>{
   const btn=e.currentTarget,filled=[...cards.querySelectorAll('textarea')].some(t=>t.value.trim());

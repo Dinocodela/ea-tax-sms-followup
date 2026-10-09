@@ -119,6 +119,8 @@ def run_server(config):
                 if self.path == '/api/rule':
                     engine.save_selected_rule(data)
                     return self.respond(200, {'ok': True})
+                if self.path == '/api/track':
+                    return self.respond(200, engine.set_tracked(str(data['campaign']), bool(data['on'])))
                 if self.path == '/api/rules':
                     engine.save_campaign_rules(data)
                     return self.respond(200, {'ok': True})
